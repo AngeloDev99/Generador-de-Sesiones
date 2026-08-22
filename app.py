@@ -19,10 +19,19 @@ st.title("🎒 Generador Automático de Sesiones de Aprendizaje - MINEDU")
 st.markdown("Sube el Proyecto de Aprendizaje y descarga las sesiones en formato Word (.docx) por cada día.")
 
 # Barra lateral para API Key
+# Intentar obtener la API Key automáticamente desde los Secrets de Streamlit
+api_key = st.secrets.get("GEMINI_API_KEY", None)
+
 with st.sidebar:
     st.header("⚙️ Configuración")
-    api_key = st.text_input("Ingresa tu Gemini API Key:", type="password")
-    st.markdown("[Obtener API Key gratis en Google AI Studio](https://aistudio.google.com/)")
+    if api_key:
+        st.success("🟢 API Key cargada automáticamente")
+    else:
+        api_key = st.text_input("Ingresa tu Gemini API Key:", type="password")
+        st.markdown("[Obtener API Key en Google AI Studio](https://aistudio.google.com/)")
+    
+    st.divider()
+    st.info("Alineado al CNEB - MINEDU (Perú)")
 
 # Funciones de extracción de texto
 def extract_text_from_file(uploaded_file):
