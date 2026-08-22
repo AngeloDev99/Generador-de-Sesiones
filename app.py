@@ -159,7 +159,7 @@ if st.button("🚀 Analizar Proyecto y Generar Sesiones", type="primary"):
                 {proyecto_txt[:4000]}
                 """
                 response_dias = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.6-flash",
                     contents=prompt_dias
                 )
                 
@@ -192,7 +192,7 @@ if st.button("🚀 Analizar Proyecto y Generar Sesiones", type="primary"):
                     """
                     
                     res_sesion = client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="gemini-3.6-flash",
                         contents=prompt_sesion
                     )
                     
