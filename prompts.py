@@ -22,24 +22,45 @@ INSTRUCCIONES ESTRUCTURALES OBLIGATORIAS:
 No omitas ninguna sección y mantén un lenguaje amplio, pedagógico y sin resúmenes.
 """
 
-PROMPT_SESION = """
-Actúa como una profesora experta del nivel inicial y genera una sesión de aprendizaje detallada para niños de 5 años del nivel inicial, tomando como referencia el Programa Curricular de Educación Inicial del MINEDU (2016).
+# prompts.py
 
-Contexto del Proyecto:
+# Prompt para extraer la Secuencia General de días del Proyecto
+PROMPT_EXTRAER_SECUENCIA = """
+Analiza el siguiente Proyecto de Aprendizaje y extrae únicamente la lista de los días con sus respectivos temas/actividades según la Secuencia General.
+
+Proyecto:
 ---
 {proyecto_contexto}
 ---
 
-Día/Tema de la Sesión: {dia_tema}
+INSTRUCCIONES DE SALIDA:
+- Devuelve SOLO la lista de días y sus títulos o temas principales, uno por línea.
+- Ejemplo de formato:
+Día 1: Planificación del proyecto y mi silueta única
+Día 2: Un vistazo al espejo: ¿Cómo soy por fuera?
+Día 3: El motor de mi templo: Mi corazón y mis pulmones
+"""
 
-Toma como modelo exacto de formato y pasos metodológicos por área el siguiente archivo de referencia:
+PROMPT_SESION = """
+Actúa como una profesora experta del nivel inicial y genera una sesión de aprendizaje detallada para niños de 5 años, tomando como referencia el Programa Curricular de Educación Inicial del MINEDU (2016).
+
+Contexto del Proyecto de Aprendizaje Adjunto:
+---
+{proyecto_contexto}
+---
+
+Día y Tema específico a desarrollar en esta sesión: {dia_tema}
+
+Toma como MODELO EXACTO DE ESTRUCTURA Y PASOS METODOLÓGICOS por área el siguiente archivo de referencia:
 ---
 {formato_referencia}
 ---
 
-Requisitos estrictos:
-- Proporciona información coherente, amplia y sin resúmenes.
-- Mantén los procesos pedagógicos (Problematización, Propósito y Organización, Motivación, Saberes Previos, Gestión y Acompañamiento, Evaluación) y los procesos didácticos específicos del área.
+REQUISITOS ESTRUCTURALES Y PEDAGÓGICOS ESTRICTOS:
+1. Utiliza Markdown puro.
+2. Toda la información debe ser coherente, amplia y con las bases de la MINEDU. No hagas resúmenes ni inventes datos; la información debe ser completa.
+3. MANTIENE LOS PASOS METODOLÓGICOS Y PROCESOS PEDAGÓGICOS EXACTOS (Inicio/Problematización, Propósito, Motivación, Saberes Previos; Desarrollo/Gestión y Acompañamiento, Procesos Didácticos del área; Cierre/Evaluación y Metacognición).
+4. Genera TABLAS MARKDOWN ESTRICTAS (`| Columna | Columna |`) para los Datos Informativos, Propósitos de Aprendizaje, Evaluación Formativa y Materiales, tal como aparecen en el archivo de referencia.
 """
 
 PROMPT_FICHA = """
@@ -52,3 +73,4 @@ Estilo visual:
 - Ilustración vectorial limpia, trazo negro sobre fondo blanco.
 - Personajes y objetos animados infantiles con contornos gruesos y claros.
 """
+
