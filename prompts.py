@@ -6,15 +6,20 @@ Actúa como docente experta del nivel inicial y elabora un Proyecto de Aprendiza
 Título del Proyecto: {titulo}
 Duración: {duracion}
 
-Toma como referencia estricta la estructura y contenido del documento adjunto:
+Toma como referencia la estructura del siguiente documento:
 ---
 {contenido_referencia}
 ---
 
-Instrucciones adicionales:
-- Genera la propuesta completa sin omitir áreas, competencias ni desempeños.
-- Adapta las actividades exactamente a la duración de {duracion}.
-- Incluye la planificación del cronograma de actividades por cada día.
+INSTRUCCIONES ESTRUCTURALES OBLIGATORIAS:
+- Usa Markdown puro.
+- Para las secciones I (DATOS INFORMATIVOS), III (PROPÓSITO DE APRENDIZAJE), IV (ENFOQUES TRANSVERSALES), V (INCORPORACIÓN DEL DUA), VI (PLANIFICACIÓN CON LOS NIÑOS), VII (SECUENCIA GENERAL DE DÍAS), VIII (DESARROLLO METODOLÓGICO) y IX (EVALUACIÓN FORMATIVA), DEBES GENERAR TABLAS MARKDOWN ESTRICTAS con encabezados y filas.
+- Ejemplo de formato de tabla requerido:
+| Encabezado 1 | Encabezado 2 |
+| :--- | :--- |
+| Dato 1 | Dato 2 |
+
+No omitas ninguna sección y mantén un lenguaje amplio, pedagógico y sin resúmenes.
 """
 
 PROMPT_SESION = """
