@@ -1,225 +1,167 @@
-import io
-import re
+# app.py
+import os
 import streamlit as st
-from docx import Document
-from docx.shared import Inches, Pt, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from pypdf import PdfReader
 from google import genai
+from google.genai import types
+from prompts import PROMPT_PROYECTO, PROMPT_SESION, PROMPT_FICHA
+from utils.document_parser import extract_text_from_file
+from utils.docx_generator import create_docx_from_text
 
-# Configuración de página
-st.set_page_config(
-    page_title="Generador de Sesiones MINEDU - Nivel Inicial",
-    page_icon="🎒",
-    layout="wide"
-)
+# Configuración de Streamlit
+st.set_page_config(page_title="Asistente MINEDU - Nivel Inicial", layout="wide")
+st.title("Plataforma de Automatización Docente - Educación Inicial (MINEDU)")
 
-st.title("🎒 Generador Automático de Sesiones de Aprendizaje - MINEDU")
-st.markdown("Sube el Proyecto de Aprendizaje y descarga las sesiones en formato Word (.docx) por cada día.")
+# Inicialización de Client Gemini
+api_key = st.sidebar.text_input("Ingrese Gemini API Key:", type="password")
+client = genai.Client(api_key=api_key) if api_key else None
 
-# Barra lateral para API Key
-# Intentar obtener la API Key automáticamente desde los Secrets de Streamlit
-api_key = st.secrets.get("GEMINI_API_KEY", None)
+# Estado global de la sesión
+if "proyecto_generado" not in st.session_state:
+    st.session_state.proyecto_generado = None
+if "sesiones_generadas" not in st.session_state:
+    st.session_state.sesiones_generadas = {}
 
-with st.sidebar:
-    st.header("⚙️ Configuración")
-    if api_key:
-        st.success("🟢 API Key cargada automáticamente")
-    else:
-        api_key = st.text_input("Ingresa tu Gemini API Key:", type="password")
-        st.markdown("[Obtener API Key en Google AI Studio](https://aistudio.google.com/)")
+tab1, tab2, tab3 = st.tabs([
+    "1. Creación de Proyecto", 
+    "2. Creación de Sesiones", 
+    "3. Fichas de Trabajo"
+])
+
+# -------------------------------------------------------------------
+# PESTAÑA 1: PROYECTO DE APRENDIZAJE
+# -------------------------------------------------------------------
+with tab1:
+    st.header("1. Elaboración del Proyecto de Aprendizaje")
     
-    st.divider()
-    st.info("Alineado al CNEB - MINEDU (Perú)")
+    col1, col2 = st.columns(2)
+    with col1:
+        titulo = st.text_input("Título del Proyecto:", "Descubriendo los seres vivos de nuestro entorno")
+        duracion = st.text_input("Duración (ej. 2 semanas / 10 días):", "2 semanas")
+        archivo_referencia = st.file_uploader("Adjuntar archivo de estructura de referencia (.docx o .pdf):", type=["docx", "pdf"])
 
-# Funciones de extracción de texto
-def extract_text_from_file(uploaded_file):
-    if uploaded_file.name.endswith('.pdf'):
-        reader = PdfReader(uploaded_file)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text() + "\n"
-        return text
-    elif uploaded_file.name.endswith('.docx'):
-        doc = Document(uploaded_file)
-        return "\n".join([p.text for p in doc.paragraphs])
-    elif uploaded_file.name.endswith('.txt'):
-        return uploaded_file.read().decode('utf-8')
-    return ""
-
-# Función para convertir Markdown/Tablas a archivo Word (.docx)
-def markdown_to_docx(md_text, title="Sesion_de_Aprendizaje"):
-    doc = Document()
-    
-    # Márgenes de la página
-    sections = doc.sections
-    for section in sections:
-        section.top_margin = Inches(0.8)
-        section.bottom_margin = Inches(0.8)
-        section.left_margin = Inches(0.8)
-        section.right_margin = Inches(0.8)
-
-    lines = md_text.split('\n')
-    in_table = False
-    table_data = []
-
-    for line in lines:
-        stripped = line.strip()
-
-        # Detección de tablas Markdown
-        if stripped.startswith('|') and stripped.endswith('|'):
-            in_table = True
-            # Omitir líneas separadoras de markdown tipo |---|---|
-            if re.match(r'^\|[\s\:\-|\+]+\|$', stripped):
-                continue
-            cells = [c.strip() for c in stripped.split('|')[1:-1]]
-            table_data.append(cells)
-            continue
+    if st.button("Generar Proyecto de Aprendizaje"):
+        if not client:
+            st.error("Por favor, ingrese su API Key de Google GenAI.")
+        elif not archivo_referencia:
+            st.warning("Adjunte un archivo de referencia para mantener la estructura requerida.")
         else:
-            if in_table and table_data:
-                # Renderizar la tabla acumulada
-                cols_count = max(len(row) for row in table_data)
-                table = doc.add_table(rows=len(table_data), cols=cols_count)
-                table.alignment = WD_TABLE_ALIGNMENT.CENTER
-                table.style = 'Table Grid'
-
-                for row_idx, row in enumerate(table_data):
-                    for col_idx, cell_value in enumerate(row):
-                        if col_idx < cols_count:
-                            cell = table.cell(row_idx, col_idx)
-                            # Limpiar formato básico markdown
-                            clean_val = cell_value.replace('**', '').replace('<br>', '\n').replace('<br/>', '\n')
-                            cell.text = clean_val
-                            
-                            # Formato para el encabezado de la tabla
-                            if row_idx == 0:
-                                for paragraph in cell.paragraphs:
-                                    for run in paragraph.runs:
-                                        run.font.bold = True
-                                        run.font.size = Pt(10)
-                            else:
-                                for paragraph in cell.paragraphs:
-                                    for run in paragraph.runs:
-                                        run.font.size = Pt(9.5)
-
-                doc.add_paragraph() # Espaciado
-                in_table = False
-                table_data = []
-
-        # Títulos
-        if stripped.startswith('# '):
-            p = doc.add_heading(stripped[2:], level=1)
-            p.runs[0].font.color.rgb = RGBColor(0, 51, 102)
-        elif stripped.startswith('## '):
-            p = doc.add_heading(stripped[3:], level=2)
-            p.runs[0].font.color.rgb = RGBColor(0, 102, 153)
-        elif stripped.startswith('### '):
-            p = doc.add_heading(stripped[4:], level=3)
-        elif stripped.startswith('* ') or stripped.startswith('- '):
-            clean_item = stripped[2:].replace('**', '')
-            doc.add_paragraph(clean_item, style='List Bullet')
-        elif stripped:
-            clean_p = stripped.replace('**', '')
-            doc.add_paragraph(clean_p)
-
-    # Procesar tabla si quedó al final del texto
-    if in_table and table_data:
-        cols_count = max(len(row) for row in table_data)
-        table = doc.add_table(rows=len(table_data), cols=cols_count)
-        table.alignment = WD_TABLE_ALIGNMENT.CENTER
-        table.style = 'Table Grid'
-        for row_idx, row in enumerate(table_data):
-            for col_idx, cell_value in enumerate(row):
-                if col_idx < cols_count:
-                    cell = table.cell(row_idx, col_idx)
-                    cell.text = cell_value.replace('**', '').replace('<br>', '\n')
-
-    buffer = io.BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
-    return buffer
-
-# Carga de archivos
-col1, col2 = st.columns(2)
-with col1:
-    proyecto_file = st.file_uploader("1. Sube el Proyecto de Aprendizaje (PDF, DOCX o TXT)", type=['pdf', 'docx', 'txt'])
-with col2:
-    plantilla_file = st.file_uploader("2. Sube la Plantilla / Modelo de Sesión (Opcional)", type=['pdf', 'docx', 'txt'])
-
-if st.button("🚀 Analizar Proyecto y Generar Sesiones", type="primary"):
-    if not api_key:
-        st.error("Por favor, ingresa tu Gemini API Key en la barra lateral.")
-    elif not proyecto_file:
-        st.error("Por favor, sube el archivo de tu Proyecto de Aprendizaje.")
-    else:
-        try:
-            client = genai.Client(api_key=api_key)
-            
-            with st.spinner("Leyendo archivos y analizando la estructura del proyecto..."):
-                proyecto_txt = extract_text_from_file(proyecto_file)
-                plantilla_txt = extract_text_from_file(plantilla_file) if plantilla_file else "Usar estructura estándar MINEDU para nivel inicial (4 y 5 años)."
-
-                # Paso 1: Consultar número de días
-                prompt_dias = f"""
-                Analiza el siguiente Proyecto de Aprendizaje de Educación Inicial y responde ÚNICAMENTE con un número entero que represente la cantidad total de días/sesiones programadas en el proyecto.
-                
-                PROYECTO:
-                {proyecto_txt[:4000]}
-                """
-                response_dias = client.models.generate_content(
-                    model="gemini-3.6-flash",
-                    contents=prompt_dias
+            with st.spinner("Generando Proyecto de Aprendizaje según especificaciones del MINEDU..."):
+                texto_ref = extract_text_from_file(archivo_referencia)
+                prompt_final = PROMPT_PROYECTO.format(
+                    titulo=titulo,
+                    duracion=duracion,
+                    contenido_referencia=texto_ref
                 )
                 
-                try:
-                    num_dias = int(re.search(r'\d+', response_dias.text).group())
-                except:
-                    num_dias = 5 # Valor por defecto si no detecta número exacto
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt_final,
+                )
+                
+                st.session_state.proyecto_generado = response.text
+                st.success("¡Proyecto generado exitosamente!")
 
-            st.success(f"Se detectaron **{num_dias} días/sesiones** en el Proyecto de Aprendizaje. Iniciando generación...")
+    if st.session_state.proyecto_generado:
+        st.subheader("Proyecto Generado")
+        st.text_area("Vista previa:", st.session_state.proyecto_generado, height=300)
+        
+        docx_buffer = create_docx_from_text(st.session_state.proyecto_generado, f"Proyecto: {titulo}")
+        st.download_button(
+            label="Descargar Proyecto en Word (.docx)",
+            data=docx_buffer,
+            file_name=f"Proyecto_{titulo.replace(' ', '_')}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
 
-            # Generar cada día e ir mostrando botones de descarga
-            for dia in range(1, num_dias + 1):
-                with st.spinner(f"Generando Sesión del Día {dia} de {num_dias}..."):
-                    prompt_sesion = f"""
-                    Actúa como una Especialista y Docente Experta en Educación Inicial (4 y 5 años) del MINEDU (Perú).
+# -------------------------------------------------------------------
+# PESTAÑA 2: SESIONES DE APRENDIZAJE
+# -------------------------------------------------------------------
+with tab2:
+    st.header("2. Generación de Sesiones Diarias")
+    
+    if not st.session_state.proyecto_generado:
+        st.info("Primero debe generar un Proyecto de Aprendizaje en la pestaña 1.")
+    else:
+        formato_sesion = st.file_uploader("Adjuntar modelo/formato de Sesión (.pdf o .docx):", type=["pdf", "docx"], key="sesion_uploader")
+        dias_input = st.text_area("Ingrese los temas o días del proyecto (uno por línea):", 
+                                  "Día 1: Indagamos qué plantas hay en nuestro jardín\nDía 2: Clasificamos las hojas por su forma")
+        
+        if st.button("Generar Sesiones en Word"):
+            if not client:
+                st.error("Por favor, ingrese su API Key.")
+            elif not formato_sesion:
+                st.warning("Adjunte la plantilla de formato en PDF o Word.")
+            else:
+                lista_dias = [d.strip() for d in dias_input.split('\n') if d.strip()]
+                texto_formato = extract_text_from_file(formato_sesion)
+                
+                progress_bar = st.progress(0)
+                for idx, dia in enumerate(lista_dias):
+                    st.write(f"Procesando: {dia}...")
+                    prompt_sesion = PROMPT_SESION.format(
+                        proyecto_contexto=st.session_state.proyecto_generado,
+                        dia_tema=dia,
+                        formato_referencia=texto_formato
+                    )
                     
-                    OBJETIVO:
-                    Redacta la Sesión de Aprendizaje COMPLETA para el DÍA {dia} del Proyecto de Aprendizaje adjunto, respetando la secuencia del proyecto y el área correspondiente.
-                    
-                    MODELO / PLANTILLA DE REFERENCIA:
-                    {plantilla_txt}
-                    
-                    PROYECTO DE APRENDIZAJE ADJUNTO:
-                    {proyecto_txt}
-                    
-                    REGLAS OBLIGATORIAS:
-                    1. Información completa: Sin resúmenes, sin 'etc.', sin 'completar aquí'. Incluye diálogos literales de la docente, respuestas esperadas de los niños y secuencia detallada.
-                    2. Aplica los procesos didácticos correspondientes al área del día según CNEB-MINEDU.
-                    3. Utiliza tablas de Markdown formateadas limpiamente para la estructura de la sesión (Datos Informativos, Propósitos y Evidencias, Preparación, Secuencia Didáctica e Instrumento de Evaluación).
-                    """
-                    
-                    res_sesion = client.models.generate_content(
-                        model="gemini-3.6-flash",
+                    res = client.models.generate_content(
+                        model='gemini-2.5-flash',
                         contents=prompt_sesion
                     )
                     
-                    session_md = res_sesion.text
-                    docx_buffer = markdown_to_docx(session_md, title=f"Sesion_Dia_{dia}")
-                    
-                    # Mostrar card con botón de descarga para cada día
-                    with st.expander(f"📌 Sesión Día {dia} - Lista para descargar", expanded=True):
-                        st.download_button(
-                            label=f"📥 Descargar Sesión Día {dia} (.docx)",
-                            data=docx_buffer,
-                            file_name=f"Sesion_Dia_{dia}_Inicial.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            key=f"btn_dia_{dia}"
-                        )
-            
-            st.balloons()
-            st.success("¡Todas las sesiones han sido generadas correctamente!")
+                    st.session_state.sesiones_generadas[dia] = res.text
+                    progress_bar.progress((idx + 1) / len(lista_dias))
+                
+                st.success("¡Todas las sesiones han sido generadas!")
 
-        except Exception as e:
-            st.error(f"Ocurrió un error durante la generación: {str(e)}")
+        if st.session_state.sesiones_generadas:
+            st.subheader("Descargar Sesiones por Día")
+            for dia, contenido in st.session_state.sesiones_generadas.items():
+                buf = create_docx_from_text(contenido, f"Sesión: {dia}")
+                st.download_button(
+                    label=f"Descargar {dia} (.docx)",
+                    data=buf,
+                    file_name=f"Sesion_{dia.replace(' ', '_')}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+
+# -------------------------------------------------------------------
+# PESTAÑA 3: FICHAS DE TRABAJO (IMÁGENES ILUSTRADAS)
+# -------------------------------------------------------------------
+with tab3:
+    st.header("3. Creación de Fichas de Trabajo para Colorear/Trazar")
+    
+    if not st.session_state.sesiones_generadas:
+        st.info("Genere las sesiones en la pestaña 2 para crear las fichas de trabajo.")
+    else:
+        sesion_seleccionada = st.selectbox("Seleccione la Sesión:", list(st.session_state.sesiones_generadas.keys()))
+        actividad_especifica = st.text_input("Instrucción o actividad para la ficha:", "Dibuja 3 hojas y traza el camino hacia la planta")
+        
+        if st.button("Generar Ficha de Trabajo (Imagen)"):
+            if not client:
+                st.error("Ingrese su API Key.")
+            else:
+                with st.spinner("Generando ilustración en blanco y negro para la ficha..."):
+                    prompt_imagen = PROMPT_FICHA.format(
+                        tema_sesion=sesion_seleccionada,
+                        actividad_especifica=actividad_especifica
+                    )
+                    
+                    # Llamada a Imagen 3 mediante la API de Google GenAI
+                    result_img = client.models.generate_images(
+                        model='imagen-3.0-generate-002',
+                        prompt=prompt_imagen,
+                        config=types.GenerateImagesConfig(
+                            number_of_images=1,
+                            aspect_ratio="3:4"
+                        )
+                    )
+                    
+                    for generated_image in result_img.generated_images:
+                        st.image(generated_image.image.image_bytes, caption=f"Ficha: {sesion_seleccionada}")
+                        st.download_button(
+                            label="Descargar Ficha para Imprimir (PNG)",
+                            data=generated_image.image.image_bytes,
+                            file_name=f"Ficha_{sesion_seleccionada.replace(' ', '_')}.png",
+                            mime="image/png"
+                        )
