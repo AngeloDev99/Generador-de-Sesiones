@@ -197,31 +197,45 @@ with tab3:
         sesion_seleccionada = st.selectbox("Seleccione la Sesión:", list(st.session_state.sesiones_generadas.keys()))
         actividad_especifica = st.text_input("Instrucción o actividad para la ficha:", "Dibuja 3 hojas y traza el camino hacia la planta")
         
-        if st.button("Generar Ficha de Trabajo (Imagen)"):
-            if not client:
-                st.error("Ingrese su API Key.")
-            else:
-                with st.spinner("Generando ilustración en blanco y negro para la ficha..."):
-                    prompt_imagen = PROMPT_FICHA.format(
-                        tema_sesion=sesion_seleccionada,
-                        actividad_especifica=actividad_especifica
+# Pestaña 3: Generación de Fichas de Trabajo
+if st.button("Generar Ficha de Trabajo (Imagen)"):
+    if not client:
+        st.error("Ingrese su API Key en la barra lateral.")
+    else:
+        with st.spinner("Generando ilustración en blanco y negro para la ficha..."):
+            prompt_imagen = PROMPT_FICHA.format(
+                tema_sesion=sesion_seleccionada,
+                actividad_especifica=actividad_especifica
+            )
+            
+            try:
+                # Invocación estructurada para Imagen 3 en SDK google-genai
+                result_img = client.models.generate_images(
+                    model='imagen-3.0-generate-002',
+                    prompt=prompt_imagen,
+                    config=types.GenerateImagesConfig(
+                        number_of_images=1,
+                        aspect_ratio="3:4",
+                        output_mime_type="image/png"
                     )
-                    
-                    # Llamada a Imagen 3 mediante la API de Google GenAI
-                    result_img = client.models.generate_images(
-                        model='imagen-3.0-generate-002',
-                        prompt=prompt_imagen,
-                        config=types.GenerateImagesConfig(
-                            number_of_images=1,
-                            aspect_ratio="3:4"
-                        )
-                    )
-                    
+                )
+                
+                if result_img.generated_images:
                     for generated_image in result_img.generated_images:
-                        st.image(generated_image.image.image_bytes, caption=f"Ficha: {sesion_seleccionada}")
+                        image_bytes = generated_image.image.image_bytes
+                        st.image(image_bytes, caption=f"Ficha: {sesion_seleccionada}")
                         st.download_button(
                             label="Descargar Ficha para Imprimir (PNG)",
-                            data=generated_image.image.image_bytes,
+                            data=image_bytes,
                             file_name=f"Ficha_{sesion_seleccionada.replace(' ', '_')}.png",
                             mime="image/png"
                         )
+                else:
+                    st.warning("No se pudo generar la imagen. Intenta con una instrucción diferente.")
+
+            except errors.APIError as e:
+                st.error(f"Error de API al generar la imagen (Código {e.code}): {e.message}")
+            except ValueError as ve:
+                st.error(f"Error de parámetros en la petición: {str(ve)}")
+            except Exception as e:
+                st.error(f"Ocurrió un error inesperado al generar la imagen: {str(e)}")
