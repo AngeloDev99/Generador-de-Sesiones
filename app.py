@@ -188,6 +188,7 @@ with tab2:
 # -------------------------------------------------------------------
 # PESTAÑA 3: FICHAS DE TRABAJO (IMÁGENES ILUSTRADAS)
 # -------------------------------------------------------------------
+import base64
 import requests
 
 # PESTAÑA 3: FICHAS DE TRABAJO (IMÁGENES ILUSTRADAS)
@@ -216,8 +217,13 @@ with tab3:
                         actividad_especifica=actividad_especifica
                     )
                     
-                    # Endpoint oficial de Imagen 3 en Developer API mode
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key={api_key.strip()}"
+                    # Endpoint oficial de Imagen 3 REST API
+                    url = "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict"
+                    
+                    headers = {
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": api_key.strip()  # Header de autenticación obligatorio
+                    }
                     
                     payload = {
                         "instances": [
@@ -225,28 +231,27 @@ with tab3:
                         ],
                         "parameters": {
                             "sampleCount": 1,
-                            "aspectRatio": "3:4",
-                            "outputOptions": {
-                                "mimeType": "image/png"
-                            }
+                            "aspectRatio": "3:4"
                         }
                     }
                     
                     try:
-                        response = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+                        response = requests.post(url, json=payload, headers=headers)
                         res_data = response.json()
                         
                         if response.status_code == 200 and "predictions" in res_data:
-                            import base64
                             b64_image = res_data["predictions"][0]["bytesBase64Encoded"]
                             image_bytes = base64.b64decode(b64_image)
                             
                             st.image(image_bytes, caption=f"Ficha de Trabajo: {sesion_seleccionada}")
                             
+                            # Formatear el nombre del archivo limpiando caracteres especiales
+                            nombre_img = f"Ficha_{sesion_seleccionada.replace(':', '_').replace(' ', '_')}.png"
+                            
                             st.download_button(
                                 label="Descargar Ficha para Imprimir (PNG)",
                                 data=image_bytes,
-                                file_name=f"Ficha_{sesion_seleccionada.replace(':', '_').replace(' ', '_')}.png",
+                                file_name=nombre_img,
                                 mime="image/png"
                             )
                         else:
@@ -254,4 +259,4 @@ with tab3:
                             st.error(f"Error de la API (Código {response.status_code}): {mensaje_error}")
                             
                     except Exception as e:
-                        st.error(f"Error al generar la imagen: {str(e)}")
+                        st.error(f"Error inesperado al generar la imagen: {str(e)}")
