@@ -190,6 +190,7 @@ with tab2:
 # -------------------------------------------------------------------
 import base64
 import requests
+import streamlit as st
 
 # PESTAÑA 3: FICHAS DE TRABAJO (IMÁGENES ILUSTRADAS)
 with tab3:
@@ -217,21 +218,19 @@ with tab3:
                         actividad_especifica=actividad_especifica
                     )
                     
-                    # Endpoint oficial de Imagen 3 REST API
-                    url = "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict"
+                    # Endpoint oficial de Imagen 3 en Google AI Studio (generateImages)
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key={api_key.strip()}"
                     
                     headers = {
-                        "Content-Type": "application/json",
-                        "x-goog-api-key": api_key.strip()  # Header de autenticación obligatorio
+                        "Content-Type": "application/json"
                     }
                     
                     payload = {
-                        "instances": [
-                            {"prompt": prompt_imagen}
-                        ],
-                        "parameters": {
-                            "sampleCount": 1,
-                            "aspectRatio": "3:4"
+                        "prompt": prompt_imagen,
+                        "config": {
+                            "numberOfImages": 1,
+                            "aspectRatio": "3:4",
+                            "outputMimeType": "image/png"
                         }
                     }
                     
@@ -239,13 +238,13 @@ with tab3:
                         response = requests.post(url, json=payload, headers=headers)
                         res_data = response.json()
                         
-                        if response.status_code == 200 and "predictions" in res_data:
-                            b64_image = res_data["predictions"][0]["bytesBase64Encoded"]
+                        if response.status_code == 200 and "generatedImages" in res_data:
+                            # Extraer bytes de la imagen generada
+                            b64_image = res_data["generatedImages"][0]["image"]["imageBytes"]
                             image_bytes = base64.b64decode(b64_image)
                             
                             st.image(image_bytes, caption=f"Ficha de Trabajo: {sesion_seleccionada}")
                             
-                            # Formatear el nombre del archivo limpiando caracteres especiales
                             nombre_img = f"Ficha_{sesion_seleccionada.replace(':', '_').replace(' ', '_')}.png"
                             
                             st.download_button(
