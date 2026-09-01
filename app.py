@@ -190,6 +190,7 @@ with tab2:
 # -------------------------------------------------------------------
 import base64
 import requests
+import streamlit as st
 
 # PESTAÑA 3: FICHAS DE TRABAJO (IMÁGENES ILUSTRADAS)
 with tab3:
@@ -217,11 +218,12 @@ with tab3:
                         actividad_especifica=actividad_especifica
                     )
                     
-                    # Endpoint oficial de Imagen 3 en Google AI Studio (generateImages)
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key={api_key.strip()}"
+                    # URL oficial de la API de Google AI Studio para Imagen 3
+                    url = "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages"
                     
                     headers = {
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": api_key.strip()
                     }
                     
                     payload = {
@@ -235,26 +237,32 @@ with tab3:
                     
                     try:
                         response = requests.post(url, json=payload, headers=headers)
-                        res_data = response.json()
                         
-                        if response.status_code == 200 and "generatedImages" in res_data:
-                            # Extraer bytes de la imagen generada
-                            b64_image = res_data["generatedImages"][0]["image"]["imageBytes"]
-                            image_bytes = base64.b64decode(b64_image)
-                            
-                            st.image(image_bytes, caption=f"Ficha de Trabajo: {sesion_seleccionada}")
-                            
-                            nombre_img = f"Ficha_{sesion_seleccionada.replace(':', '_').replace(' ', '_')}.png"
-                            
-                            st.download_button(
-                                label="Descargar Ficha para Imprimir (PNG)",
-                                data=image_bytes,
-                                file_name=nombre_img,
-                                mime="image/png"
-                            )
+                        # Validar si la respuesta devolvió contenido
+                        if not response.text:
+                            st.error("La API devolvió una respuesta vacía. Verifique que su API Key tenga acceso al modelo Imagen 3.")
                         else:
-                            mensaje_error = res_data.get("error", {}).get("message", response.text)
-                            st.error(f"Error de la API (Código {response.status_code}): {mensaje_error}")
+                            res_data = response.json()
                             
+                            if response.status_code == 200 and "generatedImages" in res_data:
+                                b64_image = res_data["generatedImages"][0]["image"]["imageBytes"]
+                                image_bytes = base64.b64decode(b64_image)
+                                
+                                st.image(image_bytes, caption=f"Ficha de Trabajo: {sesion_seleccionada}")
+                                
+                                nombre_img = f"Ficha_{sesion_seleccionada.replace(':', '_').replace(' ', '_')}.png"
+                                
+                                st.download_button(
+                                    label="Descargar Ficha para Imprimir (PNG)",
+                                    data=image_bytes,
+                                    file_name=nombre_img,
+                                    mime="image/png"
+                                )
+                            else:
+                                mensaje_error = res_data.get("error", {}).get("message", response.text)
+                                st.error(f"Error de la API (Código {response.status_code}): {mensaje_error}")
+                                
+                    except requests.exceptions.JSONDecodeError:
+                        st.error(f"Error al procesar la respuesta de la API (Código HTTP {response.status_code}). Respuesta bruta: {response.text[:200]}")
                     except Exception as e:
                         st.error(f"Error inesperado al generar la imagen: {str(e)}")
