@@ -190,7 +190,6 @@ with tab2:
 # -------------------------------------------------------------------
 import base64
 import requests
-import streamlit as st
 
 # PESTAÑA 3: FICHAS DE TRABAJO (IMÁGENES ILUSTRADAS)
 with tab3:
