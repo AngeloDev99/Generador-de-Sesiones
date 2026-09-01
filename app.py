@@ -193,6 +193,7 @@ import requests
 import streamlit as st
 
 # PESTAÑA 3: FICHAS DE TRABAJO (IMÁGENES ILUSTRADAS)
+# PESTAÑA 3: FICHAS DE TRABAJO (GENERACIÓN SVG VÍA GEMINI)
 with tab3:
     st.header("3. Creación de Fichas de Trabajo para Colorear/Trazar")
     
@@ -208,61 +209,48 @@ with tab3:
             "Dibuja y colorea los elementos mencionados en la sesión"
         )
         
-        if st.button("Generar Ficha de Trabajo (Imagen)"):
-            if not api_key:
+        if st.button("Generar Ficha de Trabajo (SVG)"):
+            if not client:
                 st.error("Por favor, ingrese su API Key en la barra lateral.")
             else:
-                with st.spinner("Generando ilustración en blanco y negro para la ficha..."):
-                    prompt_imagen = PROMPT_FICHA.format(
-                        tema_sesion=sesion_seleccionada,
-                        actividad_especifica=actividad_especifica
-                    )
+                with st.spinner("Generando ficha vectorial en blanco y negro..."):
+                    prompt_svg = f"""
+                    Actúa como un diseñador de material educativo infantil.
+                    Crea un código SVG completo y válido para una ficha de trabajo interactiva de nivel inicial (5 años).
                     
-                    # URL oficial de la API de Google AI Studio para Imagen 3
-                    url = "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages"
+                    Tema de la sesión: {sesion_seleccionada}
+                    Actividad: {actividad_especifica}
                     
-                    headers = {
-                        "Content-Type": "application/json",
-                        "x-goog-api-key": api_key.strip()
-                    }
-                    
-                    payload = {
-                        "prompt": prompt_imagen,
-                        "config": {
-                            "numberOfImages": 1,
-                            "aspectRatio": "3:4",
-                            "outputMimeType": "image/png"
-                        }
-                    }
+                    REQUISITOS DEL SVG:
+                    - Estilo: Dibujo en blanco y negro, contornos negros gruesos (stroke='black', stroke-width='2' u '8'), fondo blanco (fill='none' o fill='white').
+                    - Apto para colorear y trazar por niños de 5 años.
+                    - Incluye título de la actividad y espacio superior para el Nombre del niño.
+                    - Devuelve ÚNICAMENTE el código SVG dentro de un bloque de código markdown (```xml ... ```). Sin texto adicional.
+                    """
                     
                     try:
-                        response = requests.post(url, json=payload, headers=headers)
+                        res = client.models.generate_content(
+                            model='gemini-2.5-flash',
+                            contents=prompt_svg
+                        )
                         
-                        # Validar si la respuesta devolvió contenido
-                        if not response.text:
-                            st.error("La API devolvió una respuesta vacía. Verifique que su API Key tenga acceso al modelo Imagen 3.")
-                        else:
-                            res_data = response.json()
+                        svg_code = res.text
+                        if "```xml" in svg_code:
+                            svg_code = svg_code.split("```xml")[1].split("```")[0].strip()
+                        elif "```svg" in svg_code:
+                            svg_code = svg_code.split("```svg")[1].split("```")[0].strip()
+                        elif "```" in svg_code:
+                            svg_code = svg_code.split("```")[1].split("```")[0].strip()
                             
-                            if response.status_code == 200 and "generatedImages" in res_data:
-                                b64_image = res_data["generatedImages"][0]["image"]["imageBytes"]
-                                image_bytes = base64.b64decode(b64_image)
-                                
-                                st.image(image_bytes, caption=f"Ficha de Trabajo: {sesion_seleccionada}")
-                                
-                                nombre_img = f"Ficha_{sesion_seleccionada.replace(':', '_').replace(' ', '_')}.png"
-                                
-                                st.download_button(
-                                    label="Descargar Ficha para Imprimir (PNG)",
-                                    data=image_bytes,
-                                    file_name=nombre_img,
-                                    mime="image/png"
-                                )
-                            else:
-                                mensaje_error = res_data.get("error", {}).get("message", response.text)
-                                st.error(f"Error de la API (Código {response.status_code}): {mensaje_error}")
-                                
-                    except requests.exceptions.JSONDecodeError:
-                        st.error(f"Error al procesar la respuesta de la API (Código HTTP {response.status_code}). Respuesta bruta: {response.text[:200]}")
+                        # Mostrar el gráfico en Streamlit
+                        st.image(svg_code, caption=f"Ficha: {sesion_seleccionada}")
+                        
+                        # Descarga en formato SVG
+                        st.download_button(
+                            label="Descargar Ficha en Formato Vectorial (.svg)",
+                            data=svg_code,
+                            file_name=f"Ficha_{sesion_seleccionada.replace(':', '_').replace(' ', '_')}.svg",
+                            mime="image/svg+xml"
+                        )
                     except Exception as e:
-                        st.error(f"Error inesperado al generar la imagen: {str(e)}")
+                        st.error(f"Error al generar la ficha: {str(e)}")
