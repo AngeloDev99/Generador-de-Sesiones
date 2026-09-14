@@ -14,8 +14,13 @@ st.set_page_config(page_title="Asistente MINEDU - Nivel Inicial", layout="wide")
 st.title("Plataforma de Automatización Docente - Educación Inicial (MINEDU)")
 
 # Inicialización de Client Gemini
-api_key = st.sidebar.text_input("Ingrese Gemini API Key:", type="password")
-client = genai.Client(api_key=api_key) if api_key else None
+try:
+    # Lee la clave desde los secretos de Streamlit
+    api_key = st.secrets["GEMINI_API_KEY"]
+    client = genai.Client(api_key=api_key)
+except KeyError:
+    st.error("⚠️ Error crítico: No se encontró la GEMINI_API_KEY en la configuración de secretos.")
+    st.stop() # Detiene la ejecución si no hay clave
 
 # Estado global de la sesión
 if "proyecto_generado" not in st.session_state:
