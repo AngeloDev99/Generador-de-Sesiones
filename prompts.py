@@ -41,26 +41,38 @@ Día 2: Un vistazo al espejo: ¿Cómo soy por fuera?
 Día 3: El motor de mi templo: Mi corazón y mis pulmones
 """
 
-PROMPT_SESION = """
-Actúa como una profesora experta del nivel inicial y genera una sesión de aprendizaje detallada para niños de 5 años, tomando como referencia el Programa Curricular de Educación Inicial del MINEDU (2016).
+# prompts.py
 
-Contexto del Proyecto de Aprendizaje Adjunto:
+PROMPT_SESION = """
+Actúa como una profesora experta del nivel inicial y elabora una sesión de aprendizaje completa, detallada y contextualizada para niños de 5 años, fundamentada en el Programa Curricular de Educación Inicial del MINEDU (2016).
+
+Contexto del Proyecto de Aprendizaje:
 ---
 {proyecto_contexto}
 ---
 
-Día y Tema específico a desarrollar en esta sesión: {dia_tema}
+Día y Tema específico a desarrollar: {dia_tema}
 
-Toma como MODELO EXACTO DE ESTRUCTURA Y PASOS METODOLÓGICOS por área el siguiente archivo de referencia:
+Formato y Estructura de referencia obligatoria:
 ---
 {formato_referencia}
 ---
 
-REQUISITOS ESTRUCTURALES Y PEDAGÓGICOS ESTRICTOS:
-1. Utiliza Markdown puro.
-2. Toda la información debe ser coherente, amplia y con las bases de la MINEDU. No hagas resúmenes ni inventes datos; la información debe ser completa.
-3. MANTIENE LOS PASOS METODOLÓGICOS Y PROCESOS PEDAGÓGICOS EXACTOS (Inicio/Problematización, Propósito, Motivación, Saberes Previos; Desarrollo/Gestión y Acompañamiento, Procesos Didácticos del área; Cierre/Evaluación y Metacognición).
-4. Genera TABLAS MARKDOWN ESTRICTAS (`| Columna | Columna |`) para los Datos Informativos, Propósitos de Aprendizaje, Evaluación Formativa y Materiales, tal como aparecen en el archivo de referencia.
+ENFOQUE INCLUSIVO Y ATENCIÓN A LA DIVERSIDAD (SÍNDROME DE DOWN):
+En el aula se encuentra matriculada una niña de 5 años con necesidades educativas especiales asociadas a discapacidad intelectual (Síndrome de Down). Debes integrar de manera transversal y explícita las siguientes adaptaciones en la sesión:
+1. Principios DUA:
+   - Múltiples formas de implicación: motivación multisensorial, refuerzo positivo tangible y trabajo cooperativo con pares de apoyo.
+   - Múltiples formas de representación: uso de material concreto estructurado, pictogramas de alta visibilidad, modelado directo y consignas verbales breves y directas.
+   - Múltiples formas de acción y expresión: permitir respuestas mediante manipulación física, señalamiento, gestos, láminas ilustradas o verbalizaciones según su ritmo de desarrollo.
+2. Procesos Pedagógicos y Didácticos:
+   - En cada momento de la sesión (Inicio, Desarrollo y Cierre), detalla las acciones pedagógicas generales para el grupo y añade las orientaciones y ajustes razonables específicos para el acompañamiento y mediación con la estudiante.
+3. Evaluación Formativa Diferenciada:
+   - Plantea criterios de evaluación e instrumentos (ej. escala de valoración o lista de cotejo) adaptados a su nivel de logro y progreso individual, evitando la exclusión de las actividades grupales.
+
+REQUISITOS ESTRUCTURALES Y DE FORMATO:
+- Genera la respuesta en Markdown puro.
+- Para los Datos Informativos, Propósitos de Aprendizaje, Criterios de Evaluación, Ajustes DUA / Adaptaciones Curriculares y Secuencia Metodológica, utiliza estrictamente tablas Markdown (| Columna | Columna |) para asegurar su conversión a formato de tabla nativa en Word.
+- Información completa, sin resúmenes, con lenguaje técnico-pedagógico propio del MINEDU.
 """
 
 PROMPT_FICHA = """
