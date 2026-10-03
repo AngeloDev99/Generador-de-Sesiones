@@ -8,6 +8,7 @@ from utils.document_parser import extract_text_from_file
 from utils.docx_generator import create_docx_from_text
 from prompts import PROMPT_PROYECTO, PROMPT_EXTRAER_SECUENCIA, PROMPT_SESION, PROMPT_FICHA
 from google.genai import errors
+import time
 
 # Configuración de Streamlit
 st.set_page_config(page_title="Asistente MINEDU - Nivel Inicial", layout="wide")
@@ -83,111 +84,160 @@ with tab1:
 # -------------------------------------------------------------------
 # PESTAÑA 2: SESIONES DE APRENDIZAJE
 # -------------------------------------------------------------------
-# -------------------------------------------------------------------
-# PESTAÑA 2: SESIONES DE APRENDIZAJE
-# -------------------------------------------------------------------
+# app.py (Bloque completo de la Pestaña 2)
+import time
+from google.genai import errors
+
+# app.py (Pestaña 2: Sesiones de Aprendizaje)
+import time
+from google.genai import errors
+
 with tab2:
     st.header("2. Generación de Sesiones de Aprendizaje Diarias")
     
-    # Verificación de que el proyecto ya fue generado en la Pestaña 1
-    if not st.session_state.proyecto_generado:
-        st.info("📌 Primero debes generar un Proyecto de Aprendizaje en la Pestaña 1.")
-    else:
-        st.success("✅ Proyecto de Aprendizaje detectado correctamente.")
-        
-        # Subida del modelo/formato de Sesión (Word o PDF)
+    # 1. Inicialización de estados en memoria
+    if "proyecto_generado" not in st.session_state:
+        st.session_state.proyecto_generado = None
+    if "secuencia_dias" not in st.session_state:
+        st.session_state.secuencia_dias = ""
+    if "sesiones_generadas" not in st.session_state:
+        st.session_state.sesiones_generadas = {}
+
+    # 2. Gestión flexible del Proyecto de Aprendizaje (Memoria o Subida Manual)
+    col_izq, col_der = st.columns(2)
+    
+    with col_izq:
+        st.subheader("📄 Paso 1: Proyecto de Aprendizaje")
+        if st.session_state.proyecto_generado:
+            st.success("✅ Proyecto activo detectado desde la Pestaña 1.")
+            opcion_reemplazar = st.checkbox("Subir un archivo de proyecto diferente o respaldado (.docx/.pdf)")
+        else:
+            st.info("ℹ️ No hay un proyecto generado en memoria. Sube el archivo que descargaste anteriormente.")
+            opcion_reemplazar = True
+
+        if opcion_reemplazar:
+            archivo_proyecto_subido = st.file_uploader(
+                "Subir Proyecto de Aprendizaje descargado (.docx o .pdf):",
+                type=["docx", "pdf"],
+                key="uploader_proyecto_respaldo"
+            )
+            if archivo_proyecto_subido:
+                # Extraemos el texto del archivo subido y lo guardamos en la sesión
+                st.session_state.proyecto_generado = extract_text_from_file(archivo_proyecto_subido)
+                st.success("✅ Proyecto cargado correctamente desde el archivo adjunto.")
+
+    with col_der:
+        st.subheader("📋 Paso 2: Formato / Modelo de Sesión")
         formato_sesion = st.file_uploader(
-            "Adjuntar modelo/formato de referencia de Sesión de Aprendizaje (.docx o .pdf):", 
+            "Adjuntar modelo/formato de referencia de Sesión (.docx o .pdf):", 
             type=["docx", "pdf"], 
             key="sesion_uploader"
         )
-        
-        # Botón para extraer la secuencia general automáticamente
-        if st.button("🔍 Analizar Secuencia General del Proyecto"):
-            if not client:
-                st.error("Por favor, ingrese su API Key de Google GenAI en la barra lateral.")
-            else:
-                with st.spinner("Analizando la secuencia de días del proyecto..."):
-                    try:
-                        prompt_ext = PROMPT_EXTRAER_SECUENCIA.format(
-                            proyecto_contexto=st.session_state.proyecto_generado
-                        )
-                        res_secuencia = client.models.generate_content(
-                            model='gemini-3.6-flash',
-                            contents=prompt_ext
-                        )
-                        st.session_state.secuencia_dias = res_secuencia.text
-                        st.success("¡Secuencia de días analizada con éxito!")
-                    except errors.APIError as e:
-                        st.error(f"Error de API (Código {e.code}): {e.message}")
-                    except Exception as e:
-                        st.error(f"Error al analizar la secuencia: {str(e)}")
 
-        # Mostrar y permitir editar la secuencia detectada si existe
-        secuencia_texto = st.session_state.get("secuencia_dias", "")
+    st.markdown("---")
+
+    # 3. Flujo de análisis y generación (Solo si ya tenemos el proyecto por cualquiera de las 2 vías)
+    if not st.session_state.proyecto_generado:
+        st.warning("⚠️ Debes contar con un Proyecto de Aprendizaje (generado en la Pestaña 1 o subido aquí arriba) para continuar.")
+    else:
+        # Botón para extraer la secuencia general de días
+        if st.button("🔍 Analizar Secuencia General del Proyecto"):
+            with st.spinner("Analizando la secuencia de días del proyecto..."):
+                try:
+                    prompt_ext = PROMPT_EXTRAER_SECUENCIA.format(
+                        proyecto_contexto=st.session_state.proyecto_generado
+                    )
+                    res_secuencia = client.models.generate_content(
+                        model='gemini-3.8-flash',
+                        contents=prompt_ext
+                    )
+                    st.session_state.secuencia_dias = res_secuencia.text or ""
+                    st.success("¡Secuencia de días analizada con éxito!")
+                except errors.APIError as e:
+                    st.error(f"Error de API (Código {e.code}): {e.message}")
+                except Exception as e:
+                    st.error(f"Error al analizar la secuencia: {str(e)}")
+
+        # Campo visible de días
         dias_input = st.text_area(
             "Días/Temas detectados para la generación de sesiones (puedes editarlos si deseas):", 
-            value=secuencia_texto, 
-            height=200
+            value=st.session_state.secuencia_dias, 
+            height=180,
+            key="input_dias_area"
         )
 
         st.markdown("---")
 
-        # Generación masiva de sesiones en formato .docx
+        # Botón para disparar la generación en lote
         if st.button("🚀 Generar Todas las Sesiones en Archivos Word (.docx)"):
-            if not client:
-                st.error("Por favor, ingrese su API Key.")
-            elif not formato_sesion:
+            if not formato_sesion:
                 st.warning("⚠️ Debe adjuntar el archivo de formato/modelo de la sesión en PDF o Word.")
-            elif not dias_input.strip():
-                st.warning("⚠️ No se han detectado días. Haga clic en 'Analizar Secuencia General' o ingrese los días manualmente.")
+            elif not dias_input or not dias_input.strip():
+                st.warning("⚠️ Ingrese o analice los días antes de continuar.")
             else:
                 lista_dias = [d.strip() for d in dias_input.split('\n') if d.strip()]
                 texto_formato = extract_text_from_file(formato_sesion)
                 
                 progress_bar = st.progress(0)
+                status_text = st.empty()
                 st.session_state.sesiones_generadas = {}
-                
+                total_dias = len(lista_dias)
+
                 for idx, dia in enumerate(lista_dias):
-                    st.write(f"⏳ Generando sesión para: **{dia}**...")
+                    status_text.info(f"⏳ Generando sesión ({idx + 1}/{total_dias}): **{dia}**...")
                     prompt_sesion = PROMPT_SESION.format(
                         proyecto_contexto=st.session_state.proyecto_generado,
                         dia_tema=dia,
                         formato_referencia=texto_formato
                     )
-                    
-                    try:
-                        res = client.models.generate_content(
-                            model='gemini-3.6-flash',
-                            contents=prompt_sesion
-                        )
-                        st.session_state.sesiones_generadas[dia] = res.text
-                    except errors.APIError as e:
-                        st.error(f"Error generando {dia} (Código {e.code}): {e.message}")
-                    except Exception as e:
-                        st.error(f"Error en {dia}: {str(e)}")
-                        
-                    progress_bar.progress((idx + 1) / len(lista_dias))
-                
-                st.success("🎉 ¡Todas las sesiones de aprendizaje han sido generadas!")
 
-        # Zona de descarga individual de archivos .docx por día
+                    max_reintentos = 3
+                    espera_segundos = 10
+                    sesion_exitosa = False
+
+                    for intento in range(max_reintentos):
+                        try:
+                            res = client.models.generate_content(
+                                model='gemini-3.8-flash',
+                                contents=prompt_sesion
+                            )
+                            st.session_state.sesiones_generadas[dia] = res.text
+                            sesion_exitosa = True
+                            break
+                        except errors.APIError as e:
+                            if e.code == 429:
+                                status_text.warning(
+                                    f"Límite de cuota alcanzado en {dia}. Esperando {espera_segundos}s antes de reintentar (Intento {intento + 1}/{max_reintentos})..."
+                                )
+                                time.sleep(espera_segundos)
+                                espera_segundos *= 2
+                            else:
+                                st.error(f"Error de API en {dia} (Código {e.code}): {e.message}")
+                                break
+                        except Exception as e:
+                            st.error(f"Error inesperado en {dia}: {str(e)}")
+                            break
+
+                    if not sesion_exitosa:
+                        st.error(f"❌ No se pudo completar la sesión para: {dia}. Se continuará con el siguiente día.")
+
+                    progress_bar.progress((idx + 1) / total_dias)
+                    time.sleep(4)
+
+                status_text.success("🎉 Proceso finalizado. Revise las sesiones generadas abajo.")
+
+        # Zona de descargas individuales en Word
         if st.session_state.get("sesiones_generadas"):
             st.subheader("📥 Descargar Sesiones de Aprendizaje")
-            st.caption("Cada archivo incluye el formato exacto con tablas, pasos metodológicos y procesos pedagógicos.")
-            
             for dia, contenido in st.session_state.sesiones_generadas.items():
                 buf = create_docx_from_text(contenido, f"Sesión de Aprendizaje: {dia}")
-                
-                # Formatear el nombre del archivo descargable
                 nombre_archivo = f"Sesion_{dia.replace(':', '_').replace(' ', '_')}.docx"
-                
                 st.download_button(
                     label=f"📄 Descargar {dia} (.docx)",
                     data=buf,
                     file_name=nombre_archivo,
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    key=f"btn_{dia}"
+                    key=f"btn_dl_{dia}"
                 )
 
 # -------------------------------------------------------------------
