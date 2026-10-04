@@ -140,6 +140,10 @@ with tab2:
     if not st.session_state.proyecto_generado:
         st.warning("⚠️ Debes contar con un Proyecto de Aprendizaje (generado en la Pestaña 1 o subido aquí arriba) para continuar.")
     else:
+       # Inicialización del estado del widget si aún no existe
+        if "input_dias_area" not in st.session_state:
+            st.session_state["input_dias_area"] = ""
+
         # Botón para extraer la secuencia general de días
         if st.button("🔍 Analizar Secuencia General del Proyecto"):
             with st.spinner("Analizando la secuencia de días del proyecto..."):
@@ -151,17 +155,22 @@ with tab2:
                         model='gemini-3.8-flash',
                         contents=prompt_ext
                     )
-                    st.session_state.secuencia_dias = res_secuencia.text or ""
+                    
+                    # Asignamos directamente al key del widget
+                    texto_detectado = res_secuencia.text or ""
+                    st.session_state["input_dias_area"] = texto_detectado
+                    
                     st.success("¡Secuencia de días analizada con éxito!")
+                    st.rerun()  # Recarga la vista para reflejar el texto de inmediato
+
                 except errors.APIError as e:
                     st.error(f"Error de API (Código {e.code}): {e.message}")
                 except Exception as e:
                     st.error(f"Error al analizar la secuencia: {str(e)}")
 
-        # Campo visible de días
+        # Campo visible de días (se enlaza automáticamente mediante su key)
         dias_input = st.text_area(
             "Días/Temas detectados para la generación de sesiones (puedes editarlos si deseas):", 
-            value=st.session_state.secuencia_dias, 
             height=180,
             key="input_dias_area"
         )
