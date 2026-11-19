@@ -62,7 +62,7 @@ with tab1:
                 )
                 
                 response = client.models.generate_content(
-                    model='gemini-3.6-flash',
+                    model='gemini-3.8-flash',
                     contents=prompt_final,
                 )
                 
@@ -152,7 +152,7 @@ with tab2:
                         proyecto_contexto=st.session_state.proyecto_generado
                     )
                     res_secuencia = client.models.generate_content(
-                        model='gemini-3.6-flash',
+                        model='gemini-3.8-flash',
                         contents=prompt_ext
                     )
                     
@@ -207,7 +207,7 @@ with tab2:
                     for intento in range(max_reintentos):
                         try:
                             res = client.models.generate_content(
-                                model='gemini-3.6-flash',
+                                model='gemini-3.8-flash',
                                 contents=prompt_sesion
                             )
                             st.session_state.sesiones_generadas[dia] = res.text
@@ -294,7 +294,7 @@ with tab3:
                     
                     try:
                         res = client.models.generate_content(
-                            model='gemini-3.6-flash',
+                            model='gemini-3.8-flash',
                             contents=prompt_svg
                         )
                         
